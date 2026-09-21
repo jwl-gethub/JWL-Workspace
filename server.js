@@ -176,7 +176,18 @@ function loginPage(error) {
 }
 
 db.init()
-  .then(() => {
+  .then(async () => {
+    try {
+      const { seedIfEmpty } = require("./scripts/seedLib");
+      const result = await seedIfEmpty();
+      if (result) {
+        console.log(
+          `First boot with an empty database — loaded starter data: ${result.staff} staff, ${result.projects} projects, ${result.tasks} tasks.`
+        );
+      }
+    } catch (e) {
+      console.error("Auto-seed check failed (continuing without it):", e);
+    }
     app.listen(PORT, () => console.log(`JWL planner listening on :${PORT}`));
   })
   .catch((e) => {
