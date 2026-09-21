@@ -258,6 +258,19 @@ td.zero{color:var(--ink-3)}
   .cal-week .cal-cell{min-height:220px}
 }
 
+/* stock */
+table.stock{width:100%;border-collapse:collapse;min-width:640px}
+table.stock th{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+  text-align:right;padding:8px 10px;border-bottom:1px solid var(--line)}
+table.stock th:first-child{text-align:left}
+table.stock td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:"IBM Plex Mono",monospace;font-size:13px;white-space:nowrap}
+table.stock td.stock-name{text-align:left;font-family:"Archivo",sans-serif;font-weight:500;white-space:normal}
+table.stock td.stock-actions{text-align:right;white-space:nowrap}
+table.stock td.stock-actions .link{margin-right:10px;font-size:12px}
+table.stock input.stock-qty{width:64px;text-align:right;padding:5px 6px;border:1px solid var(--line-2);border-radius:6px;background:var(--surface-2);font-family:"IBM Plex Mono",monospace;font-size:13px;color:inherit}
+table.stock tr.stock-total-row td{font-weight:700;border-top:2px solid var(--line-2);border-bottom:none}
+@media (max-width:760px){ table.stock{min-width:560px} }
+
 /* capture */
 .capture{display:flex;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
 .capture input{flex:1;padding:9px 11px;border:1px solid var(--line-2);border-radius:7px;background:var(--surface-2)}
@@ -388,6 +401,12 @@ var RECUR = [
   {id:"quarterly", label:"Quarterly"}
 ];
 var DEFAULT_COLOR = "#1F4B99";
+var STOCK_LOCS = [
+  {id:"uk_office", label:"UK — Office"},
+  {id:"uk_storage", label:"UK — Storage"},
+  {id:"eu", label:"EU — 99 Kero"},
+  {id:"us", label:"US — Venlo"}
+];
 
 /* ============ dates ============ */
 function pad(n){return (n<10?"0":"")+n;}
@@ -452,7 +471,7 @@ function sortTasks(list){
 /* ============ state ============ */
 var S = {
   db:null, ready:false, writable:true,
-  staff:[], projects:[], tasks:[],
+  staff:[], projects:[], tasks:[], stock:[],
   view: lsGet("jwl.view")||"dashboard",
   me: lsGet("jwl.me")||null,
   openTask:null, modal:null, focusProject:null, focusStaff:null,
@@ -546,6 +565,27 @@ function newTask(over){
     subtasks:[],inbox:false,createdAt:TODAY,completedAt:""};
   for(var k in (over||{})) t[k]=over[k];
   return t;
+}
+function stockById(id){for(var i=0;i<S.stock.length;i++) if(S.stock[i].id===id) return S.stock[i];return null;}
+function cloneQty(q){var c={};for(var k in (q||{})) c[k]=q[k];return c;}
+function cloneStock(p){var c={};for(var k in p) c[k]= (k==="qty")? cloneQty(p.qty) : p[k];return c;}
+function stockTotal(p){var q=p.qty||{},t=0;for(var i=0;i<STOCK_LOCS.length;i++){var v=parseFloat(q[STOCK_LOCS[i].id]);if(!isNaN(v))t+=v;}return t;}
+function newStock(over){
+  var p={id:uid(),name:"",qty:{},notes:"",createdAt:TODAY};
+  for(var k in (over||{})) p[k]=over[k];
+  return p;
+}
+function upsertStock(p){
+  var i=-1; for(var k=0;k<S.stock.length;k++) if(S.stock[k].id===p.id){i=k;break;}
+  if(i>=0) S.stock[i]=p; else S.stock.push(p);
+  var body={}; for(var key in p) if(key!=="id") body[key]=p[key];
+  writeDoc("stock",p.id,body);
+  render();
+}
+function removeStock(id){
+  S.stock = S.stock.filter(function(p){return p.id!==id;});
+  deleteDoc("stock",id);
+  render();
 }
 function completeTask(t){
   var copy={}; for(var k in t) copy[k]=t[k];
@@ -959,6 +999,43 @@ function viewProjects(){
   return out;
 }
 
+function stockRow(p){
+  var total = stockTotal(p);
+  return '<tr>'+
+    '<td class="stock-name">'+esc(p.name)+'</td>'+
+    STOCK_LOCS.map(function(l){
+      var v=(p.qty||{})[l.id];
+      return '<td><input type="number" step="any" class="stock-qty" data-stock="'+esc(p.id)+'" data-loc="'+l.id+'" value="'+(v!=null&&v!==""?esc(v):"")+'" placeholder="0"></td>';
+    }).join("")+
+    '<td class="stock-tot">'+total+'</td>'+
+    '<td class="stock-actions"><button class="link" data-newtask-stock="'+esc(p.id)+'">+ Task</button>'+
+      '<button class="icon-btn" data-delstock="'+esc(p.id)+'" aria-label="Remove product">✕</button></td>'+
+  '</tr>';
+}
+function viewStock(){
+  var out='<div class="page-head"><div><div class="eyebrow">'+S.stock.length+' products</div><h1>Stock levels</h1></div>'+
+    '<button class="btn primary" id="new-stock">+ Add product</button></div>';
+  if(!S.stock.length){
+    out+='<div class="panel"><div class="empty">No products yet. Add your first product to start tracking stock by location.</div></div>';
+    return out;
+  }
+  var list = S.stock.slice().sort(by("name"));
+  var totalsByLoc={}; STOCK_LOCS.forEach(function(l){totalsByLoc[l.id]=0;});
+  var grand=0;
+  var rows = list.map(function(p){
+    STOCK_LOCS.forEach(function(l){ var v=parseFloat((p.qty||{})[l.id]); if(!isNaN(v)) totalsByLoc[l.id]+=v; });
+    grand += stockTotal(p);
+    return stockRow(p);
+  }).join("");
+  var footer = '<tr class="stock-total-row"><td>Total</td>'+
+    STOCK_LOCS.map(function(l){return '<td>'+totalsByLoc[l.id]+'</td>';}).join("")+
+    '<td>'+grand+'</td><td></td></tr>';
+  out += '<div class="panel"><div style="overflow-x:auto"><table class="stock">'+
+    '<thead><tr><th>Product</th>'+STOCK_LOCS.map(function(l){return '<th>'+esc(l.label)+'</th>';}).join("")+
+    '<th>Total</th><th></th></tr></thead><tbody>'+rows+footer+'</tbody></table></div>'+
+    '<p class="note" style="padding:10px 14px 12px">Quantities are entered freely per location — click "+ Task" on a product to assign someone to fill it.</p></div>';
+  return out;
+}
 function viewTeam(){
   if(S.focusStaff){
     var s = staffById(S.focusStaff);
@@ -1161,6 +1238,7 @@ var NAV = [
   {id:"inbox",     label:"Inbox"},
   {id:"projects",  label:"Projects"},
   {id:"team",      label:"Team"},
+  {id:"stock",     label:"Stock"},
   {id:"review",    label:"Weekly review"}
 ];
 function renderNav(){
@@ -1200,6 +1278,7 @@ function render(){
   else if(S.view==="inbox") html+=viewInbox();
   else if(S.view==="projects") html+=viewProjects();
   else if(S.view==="team") html+=viewTeam();
+  else if(S.view==="stock") html+=viewStock();
   else if(S.view==="review") html+=viewReview();
   v.innerHTML = html;
   renderOverlay();
@@ -1211,6 +1290,7 @@ function renderOverlay(){
   if(S.modal==="quickadd"){ o.innerHTML = quickAddHTML(); focusFirst(o); return; }
   if(S.modal==="project"){ o.innerHTML = projectModalHTML(); focusFirst(o); return; }
   if(S.modal==="staff"){ o.innerHTML = staffModalHTML(); focusFirst(o); return; }
+  if(S.modal==="stock"){ o.innerHTML = stockModalHTML(); focusFirst(o); return; }
   if(S.openTask){ o.innerHTML = drawerHTML(S.openTask); focusFirst(o); return; }
   o.innerHTML="";
 }
@@ -1283,6 +1363,16 @@ function staffModalHTML(){
         '<input type="hidden" id="sm-color" value="'+swatches[0]+'"></div></div>'+
     '</div>'+
     '<div class="m-f"><button class="btn" data-close="1">Cancel</button><button class="btn primary" id="sm-save">Add person</button></div>'+
+  '</div></div>';
+}
+function stockModalHTML(){
+  return '<div class="scrim" data-close="1"><div class="modal" role="dialog" aria-label="Add product">'+
+    '<div class="m-h"><h2>Add product</h2><button class="icon-btn" data-close="1" aria-label="Close">✕</button></div>'+
+    '<div class="m-b">'+
+      '<div class="field"><label for="st-name">Product name</label><input id="st-name" placeholder="e.g. Loose Sapphire Necklace"></div>'+
+      '<p class="note">You can enter quantities for each location right after adding it.</p>'+
+    '</div>'+
+    '<div class="m-f"><button class="btn" data-close="1">Cancel</button><button class="btn primary" id="st-save">Add product</button></div>'+
   '</div></div>';
 }
 function drawerHTML(id){
@@ -1400,9 +1490,18 @@ document.addEventListener("click",function(ev){
   el = ev.target.closest("[data-newtask-project]");
   if(el){ S.modalPrefill={projectId:el.getAttribute("data-newtask-project")}; S.modal="quickadd"; renderOverlay(); return; }
 
+  el = ev.target.closest("[data-newtask-stock]");
+  if(el){ var sp=stockById(el.getAttribute("data-newtask-stock"));
+    S.modalPrefill={title: sp? "Fill "+sp.name : "Fill stock", department:"Operations"};
+    S.modal="quickadd"; renderOverlay(); return; }
+
+  el = ev.target.closest("[data-delstock]");
+  if(el){ removeStock(el.getAttribute("data-delstock")); return; }
+
   if(ev.target.closest("#quick-add")){ S.modalPrefill=null; S.modal="quickadd"; renderOverlay(); return; }
   if(ev.target.closest("#new-project")){ S.modalProject=null; S.modal="project"; renderOverlay(); return; }
   if(ev.target.closest("#new-staff")){ S.modal="staff"; renderOverlay(); return; }
+  if(ev.target.closest("#new-stock")){ S.modal="stock"; renderOverlay(); return; }
   if(ev.target.closest("#theme-t")){ toggleTheme(); return; }
   if(ev.target.closest("#f-clear")){ S.filters={q:"",assignee:"",project:"",dept:"",status:"open",priority:""}; render(); return; }
   if(ev.target.closest("#cap-go")){ capture(); return; }
@@ -1420,6 +1519,7 @@ document.addEventListener("click",function(ev){
   if(ev.target.closest("#pm-save")){ saveProject(); return; }
   if(ev.target.closest("#pm-del")){ deleteProject(); return; }
   if(ev.target.closest("#sm-save")){ saveStaff(); return; }
+  if(ev.target.closest("#st-save")){ saveStockProduct(); return; }
   if(ev.target.closest("#td-save")){ saveDrawer(); return; }
   if(ev.target.closest("#td-del")){ if(S.openTask){ removeTask(S.openTask); closeOverlay(); } return; }
   if(ev.target.closest("#td-complete")){ t=findTask(S.openTask); if(t){ completeTask(t); renderOverlay(); } return; }
@@ -1443,6 +1543,15 @@ document.addEventListener("change",function(ev){
   if(id==="cf-dept"){ S.calF.dept=ev.target.value; render(); return; }
   if(id==="cf-color"){ S.calColor=ev.target.value; render(); return; }
   if(id==="td-status"||id==="td-dept"){ saveDrawer(true); return; }
+  if(ev.target.matches && ev.target.matches("[data-stock]")){
+    var pid=ev.target.getAttribute("data-stock"), loc=ev.target.getAttribute("data-loc");
+    var p=stockById(pid); if(!p) return;
+    var c=cloneStock(p); c.qty=c.qty||{};
+    var raw=ev.target.value;
+    c.qty[loc] = raw===""? "" : raw;
+    upsertStock(c);
+    return;
+  }
   if(ev.target.matches("[data-sub]")){
     var t=findTask(S.openTask); if(!t) return;
     var sid=ev.target.getAttribute("data-sub");
@@ -1472,8 +1581,10 @@ document.addEventListener("keydown",function(ev){
     else if(ev.target.id==="td-subnew"){ addSubtask(); }
     else if(ev.target.id==="pm-name"){ saveProject(); }
     else if(ev.target.id==="sm-name"||ev.target.id==="sm-role"){ saveStaff(); }
+    else if(ev.target.id==="st-name"){ saveStockProduct(); }
     return;
   }
+  if(ev.target.classList && ev.target.classList.contains("stock-qty") && ev.key==="Enter"){ ev.target.blur(); }
   if((ev.key==="n"||ev.key==="N") && !ev.metaKey && !ev.ctrlKey &&
      !/^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName) && !S.modal && !S.openTask){
     ev.preventDefault(); S.modalPrefill=null; S.modal="quickadd"; renderOverlay();
@@ -1558,6 +1669,12 @@ function saveStaff(){
   writeDoc("staff",s.id,body);
   closeOverlay(); render();
 }
+function saveStockProduct(){
+  var name=val("st-name").trim();
+  if(!name){ var e=document.getElementById("st-name"); if(e) e.focus(); return; }
+  upsertStock(newStock({name:name}));
+  closeOverlay();
+}
 function addSubtask(){
   var e=document.getElementById("td-subnew"); if(!e) return;
   var v=e.value.trim(); if(!v) return;
@@ -1609,9 +1726,9 @@ function toggleTheme(){
    surface the rest of this file's logic already expects, backed by a
    plain REST API + Server-Sent Events instead of a platform capability. */
 function makeApiDb(){
-  var caches = {staff:{}, projects:{}, tasks:{}};
-  var listeners = {staff:[], projects:[], tasks:[]};
-  var loaded = {staff:false, projects:false, tasks:false};
+  var caches = {staff:{}, projects:{}, tasks:{}, stock:{}};
+  var listeners = {staff:[], projects:[], tasks:[], stock:[]};
+  var loaded = {staff:false, projects:false, tasks:false, stock:false};
 
   function snapshotFor(coll){
     var docs = Object.keys(caches[coll]).map(function(id){
@@ -1637,7 +1754,7 @@ function makeApiDb(){
       return r.json();
     }).then(function(data){
       if(!data) return;
-      ["staff","projects","tasks"].forEach(function(coll){
+      ["staff","projects","tasks","stock"].forEach(function(coll){
         caches[coll]={};
         (data[coll]||[]).forEach(function(row){ caches[coll][row.id]=row.data; });
         loaded[coll]=true;
@@ -1738,6 +1855,11 @@ render();
     S.tasks = snap.docs.map(function(d){var o=d.data()||{};var r={id:d.id};for(var k in o)r[k]=o[k];
       if(!Array.isArray(r.subtasks)) r.subtasks=[]; return r;});
     S.ready=true; render();
+  },onErr);
+  db.collection("stock").onSnapshot(function(snap){
+    S.stock = snap.docs.map(function(d){var o=d.data()||{};var r={id:d.id};for(var k in o)r[k]=o[k];
+      if(!r.qty||typeof r.qty!=="object") r.qty={}; return r;});
+    render();
   },onErr);
 })();
 

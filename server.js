@@ -20,7 +20,7 @@ if (!ACCESS_CODE) {
   );
 }
 
-const COLLECTIONS = new Set(["staff", "projects", "tasks"]);
+const COLLECTIONS = new Set(["staff", "projects", "tasks", "stock"]);
 const ID_RE = /^[A-Za-z0-9_-]{1,100}$/;
 
 const app = express();
@@ -107,12 +107,13 @@ function broadcast(collection, id, data, deleted) {
 // ---- REST API ----
 app.get("/api/state", async (req, res) => {
   try {
-    const [staff, projects, tasks] = await Promise.all([
+    const [staff, projects, tasks, stock] = await Promise.all([
       db.listCollection("staff"),
       db.listCollection("projects"),
       db.listCollection("tasks"),
+      db.listCollection("stock"),
     ]);
-    res.json({ staff, projects, tasks });
+    res.json({ staff, projects, tasks, stock });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "server_error" });
