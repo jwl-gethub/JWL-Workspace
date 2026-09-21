@@ -1,0 +1,22 @@
+{
+ "title": "Review customer service escalations",
+ "assignee": "rodica",
+ "projectId": "",
+ "department": "Customer Service",
+ "category": "Escalations",
+ "priority": "high",
+ "status": "not_started",
+ "startDate": "",
+ "dueDate": "2026-09-21",
+ "progress": 0,
+ "notes": "",
+ "waitingOn": "",
+ "waitingReason": "",
+ "waitingExpected": "",
+ "blockedReason": "",
+ "recurrence": "daily",
+ "subtasks": [],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": ""
+}

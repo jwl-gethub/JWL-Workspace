@@ -1,0 +1,38 @@
+{
+ "title": "Produce Meta video ads for tourmaline set",
+ "assignee": "brett",
+ "projectId": "oct-tourmaline",
+ "department": "Marketing",
+ "category": "Meta Ads",
+ "priority": "high",
+ "status": "in_progress",
+ "startDate": "",
+ "dueDate": "2026-09-19",
+ "progress": 40,
+ "notes": "",
+ "waitingOn": "",
+ "waitingReason": "",
+ "waitingExpected": "",
+ "blockedReason": "",
+ "recurrence": "",
+ "subtasks": [
+  {
+   "id": "s1",
+   "title": "Hook variants scripted",
+   "done": true
+  },
+  {
+   "id": "s2",
+   "title": "Render 9:16 and 4:5",
+   "done": false
+  },
+  {
+   "id": "s3",
+   "title": "Caption and CTA pass",
+   "done": false
+  }
+ ],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": ""
+}

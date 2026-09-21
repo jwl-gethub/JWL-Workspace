@@ -1,0 +1,22 @@
+{
+ "title": "Confirm tourmaline stock levels",
+ "assignee": "rodica",
+ "projectId": "oct-tourmaline",
+ "department": "Operations",
+ "category": "Stock",
+ "priority": "high",
+ "status": "completed",
+ "startDate": "",
+ "dueDate": "2026-09-08",
+ "progress": 100,
+ "notes": "",
+ "waitingOn": "",
+ "waitingReason": "",
+ "waitingExpected": "",
+ "blockedReason": "",
+ "recurrence": "",
+ "subtasks": [],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": "2026-09-08"
+}

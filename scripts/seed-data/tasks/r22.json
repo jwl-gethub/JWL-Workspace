@@ -1,0 +1,22 @@
+{
+ "title": "Supplier review",
+ "assignee": "roxana",
+ "projectId": "",
+ "department": "Operations",
+ "category": "Suppliers",
+ "priority": "low",
+ "status": "not_started",
+ "startDate": "",
+ "dueDate": "2026-10-20",
+ "progress": 0,
+ "notes": "",
+ "waitingOn": "",
+ "waitingReason": "",
+ "waitingExpected": "",
+ "blockedReason": "",
+ "recurrence": "quarterly",
+ "subtasks": [],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": ""
+}

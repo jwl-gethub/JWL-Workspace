@@ -1,0 +1,22 @@
+{
+ "title": "Product performance review",
+ "assignee": "roxana",
+ "projectId": "",
+ "department": "Products",
+ "category": "Pricing",
+ "priority": "medium",
+ "status": "not_started",
+ "startDate": "",
+ "dueDate": "2026-09-30",
+ "progress": 0,
+ "notes": "",
+ "waitingOn": "",
+ "waitingReason": "",
+ "waitingExpected": "",
+ "blockedReason": "",
+ "recurrence": "monthly",
+ "subtasks": [],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": ""
+}

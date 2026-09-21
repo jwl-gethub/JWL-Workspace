@@ -1,0 +1,22 @@
+{
+ "title": "VAT review",
+ "assignee": "wissam",
+ "projectId": "",
+ "department": "Finance",
+ "category": "VAT",
+ "priority": "medium",
+ "status": "not_started",
+ "startDate": "",
+ "dueDate": "2026-10-07",
+ "progress": 0,
+ "notes": "",
+ "waitingOn": "",
+ "waitingReason": "",
+ "waitingExpected": "",
+ "blockedReason": "",
+ "recurrence": "monthly",
+ "subtasks": [],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": ""
+}

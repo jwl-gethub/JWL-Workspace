@@ -1,0 +1,22 @@
+{
+ "title": "Stock forecast for peak",
+ "assignee": "rodica",
+ "projectId": "christmas-2026",
+ "department": "Operations",
+ "category": "Stock",
+ "priority": "critical",
+ "status": "not_started",
+ "startDate": "",
+ "dueDate": "2026-10-02",
+ "progress": 0,
+ "notes": "",
+ "waitingOn": "",
+ "waitingReason": "",
+ "waitingExpected": "",
+ "blockedReason": "",
+ "recurrence": "",
+ "subtasks": [],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": ""
+}

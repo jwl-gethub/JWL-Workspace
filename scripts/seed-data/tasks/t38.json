@@ -1,0 +1,22 @@
+{
+ "title": "Approve Christmas ad budget",
+ "assignee": "brett",
+ "projectId": "christmas-2026",
+ "department": "Finance",
+ "category": "Profitability",
+ "priority": "high",
+ "status": "needs_approval",
+ "startDate": "",
+ "dueDate": "2026-09-23",
+ "progress": 0,
+ "notes": "Proposed GBP 42k across Meta and Google for November and December. Needs Wissam's sign-off.",
+ "waitingOn": "",
+ "waitingReason": "",
+ "waitingExpected": "",
+ "blockedReason": "",
+ "recurrence": "",
+ "subtasks": [],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": ""
+}

@@ -1,0 +1,22 @@
+{
+ "title": "Approve new packaging samples",
+ "assignee": "roxana",
+ "projectId": "christmas-2026",
+ "department": "Products",
+ "category": "Samples",
+ "priority": "high",
+ "status": "waiting",
+ "startDate": "",
+ "dueDate": "2026-09-25",
+ "progress": 0,
+ "notes": "",
+ "waitingOn": "Supplier",
+ "waitingReason": "Waiting for revised sample from the factory",
+ "waitingExpected": "2026-09-25",
+ "blockedReason": "",
+ "recurrence": "",
+ "subtasks": [],
+ "inbox": false,
+ "createdAt": "2026-08-20",
+ "completedAt": ""
+}
