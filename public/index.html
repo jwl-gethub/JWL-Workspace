@@ -561,11 +561,12 @@ function removeTask(id){
 function newTask(over){
   var t={id:uid(),title:"",assignee:"",projectId:"",department:"",category:"",
     priority:"medium",status:"not_started",startDate:"",dueDate:"",progress:0,notes:"",
-    waitingOn:"",waitingReason:"",waitingExpected:"",blockedReason:"",recurrence:"",
+    waitingOn:"",waitingReason:"",waitingExpected:"",blockedReason:"",recurrence:"",recurrenceDay:"",
     subtasks:[],inbox:false,createdAt:TODAY,completedAt:""};
   for(var k in (over||{})) t[k]=over[k];
   return t;
 }
+function ordinal(n){var s=["th","st","nd","rd"],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
 function stockById(id){for(var i=0;i<S.stock.length;i++) if(S.stock[i].id===id) return S.stock[i];return null;}
 function cloneQty(q){var c={};for(var k in (q||{})) c[k]=q[k];return c;}
 function cloneStock(p){var c={};for(var k in p) c[k]= (k==="qty")? cloneQty(p.qty) : p[k];return c;}
@@ -599,22 +600,52 @@ function completeTask(t){
   upsertTask(copy);
   if(t.recurrence) spawnNext(t);
 }
+function nextByWeekday(base,stepDays,recurrenceDay){
+  var next = addDays(base,stepDays);
+  if(recurrenceDay!=null && recurrenceDay!==""){
+    var target=+recurrenceDay;
+    if(parseISO(next).getDay()!==target){
+      var d=parseISO(base); d.setDate(d.getDate()+1);
+      while(d.getDay()!==target) d.setDate(d.getDate()+1);
+      next=toISO(d);
+    }
+  }
+  return next;
+}
+function lastDayOfMonth(iso){
+  var d=parseISO(iso);
+  return toISO(new Date(d.getFullYear(), d.getMonth()+1, 0));
+}
+function nextByMonthDay(base,stepMonths,recurrenceDay){
+  var next = addMonths(base,stepMonths);
+  if(recurrenceDay==="last"){
+    next = lastDayOfMonth(next);
+  } else if(recurrenceDay!=null && recurrenceDay!==""){
+    var day=+recurrenceDay;
+    var d=parseISO(next); d.setDate(1);
+    var last=new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    d.setDate(Math.min(day,last));
+    next=toISO(d);
+  }
+  return next;
+}
 function spawnNext(t){
-  var base = t.dueDate||TODAY, next;
+  var base = t.dueDate||TODAY, next, rd=t.recurrenceDay;
   if(t.recurrence==="daily") next = nextWeekday(base<TODAY?TODAY:base);
-  else if(t.recurrence==="weekly") next = addDays(base,7);
-  else if(t.recurrence==="fortnightly") next = addDays(base,14);
-  else if(t.recurrence==="monthly") next = addMonths(base,1);
-  else if(t.recurrence==="quarterly") next = addMonths(base,3);
+  else if(t.recurrence==="weekly") next = nextByWeekday(base,7,rd);
+  else if(t.recurrence==="fortnightly") next = nextByWeekday(base,14,rd);
+  else if(t.recurrence==="monthly") next = nextByMonthDay(base,1,rd);
+  else if(t.recurrence==="quarterly") next = nextByMonthDay(base,3,rd);
   else return;
   while(next<TODAY) next = t.recurrence==="daily"? nextWeekday(next)
-    : t.recurrence==="weekly"? addDays(next,7)
-    : t.recurrence==="fortnightly"? addDays(next,14)
-    : t.recurrence==="monthly"? addMonths(next,1) : addMonths(next,3);
+    : t.recurrence==="weekly"? nextByWeekday(next,7,rd)
+    : t.recurrence==="fortnightly"? nextByWeekday(next,14,rd)
+    : t.recurrence==="monthly"? nextByMonthDay(next,1,rd) : nextByMonthDay(next,3,rd);
   var n = newTask({
     title:t.title, assignee:t.assignee, projectId:t.projectId, department:t.department,
     category:t.category, priority:t.priority, dueDate:next, notes:t.notes,
-    recurrence:t.recurrence, subtasks:(t.subtasks||[]).map(function(s){return {id:uid(),title:s.title,done:false};})
+    recurrence:t.recurrence, recurrenceDay:t.recurrenceDay||"",
+    subtasks:(t.subtasks||[]).map(function(s){return {id:uid(),title:s.title,done:false};})
   });
   upsertTask(n);
 }
@@ -887,6 +918,7 @@ function viewMyDay(){
   var todayRest = sortTasks(mine.filter(function(t){return isDueToday(t)&&t.priority!=="critical"&&t.priority!=="high";}));
   var waiting = sortTasks(mine.filter(function(t){return t.status==="waiting"||t.status==="blocked";}));
   var ifTime = sortTasks(mine.filter(function(t){return isOpen(t)&&t.status!=="waiting"&&t.status!=="blocked"&&!isDueToday(t)&&!isOverdue(t)&&inThisWeek(t);}));
+  var later = sortTasks(mine.filter(function(t){return isOpen(t)&&t.status!=="waiting"&&t.status!=="blocked"&&!isDueToday(t)&&!isOverdue(t)&&!inThisWeek(t);}));
   var doneToday = mine.filter(function(t){return isDone(t)&&t.completedAt===TODAY;});
 
   var d=parseISO(TODAY);
@@ -904,6 +936,7 @@ function viewMyDay(){
   h += section("","Also due today",todayRest,{hideOwner:true},"Nothing else due today.");
   h += section("wait","Waiting or blocked",waiting,{hideOwner:true},"Nothing held up.");
   h += section("","If time allows",ifTime,{hideOwner:true},"Nothing else this week.");
+  h += section("","Later — everything else on your plate",later,{hideOwner:true},"Nothing else assigned to you.");
   h += '</div>';
   if(doneToday.length){
     h += '<div style="height:16px"></div><div class="panel"><div class="panel-h"><h2>Completed today</h2></div>'+taskList(doneToday,{hideOwner:true})+'</div>';
@@ -1380,6 +1413,18 @@ function drawerHTML(id){
   if(!t) return "";
   var cats = t.department? DEPTS[t.department]||[] : [];
   var pg = taskProgress(t);
+  var recurDayField = "";
+  if(t.recurrence==="weekly"||t.recurrence==="fortnightly"){
+    var dow = (t.recurrenceDay!=null && t.recurrenceDay!=="")? +t.recurrenceDay : parseISO(t.dueDate||TODAY).getDay();
+    recurDayField = '<div class="field"><label for="td-recur-day">Repeat on</label><select id="td-recur-day">'+
+      DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===dow?' selected':'')+'>'+d+'</option>';}).join("")+
+      '</select></div>';
+  } else if(t.recurrence==="monthly"||t.recurrence==="quarterly"){
+    var dom = (t.recurrenceDay!=null && t.recurrenceDay!=="")? String(t.recurrenceDay) : String(parseISO(t.dueDate||TODAY).getDate());
+    var domOpts = '<option value="last"'+(dom==="last"?" selected":"")+'>Last day of the month</option>';
+    for(var di=1;di<=31;di++) domOpts += '<option value="'+di+'"'+(String(di)===dom?" selected":"")+'>'+ordinal(di)+'</option>';
+    recurDayField = '<div class="field"><label for="td-recur-day">Repeat on</label><select id="td-recur-day">'+domOpts+'</select></div>';
+  }
   return '<div class="scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="Task detail">'+
     '<div class="m-h"><h2>Task</h2><div style="display:flex;gap:8px">'+
       '<button class="btn" id="td-complete">'+(isDone(t)?"Reopen":"Mark complete")+'</button>'+
@@ -1410,6 +1455,7 @@ function drawerHTML(id){
       '</div>'+
       '<div class="field"><label for="td-recur">Repeats</label><select id="td-recur">'+
         optionList(RECUR.map(function(r){return{id:r.id,label:r.label};}),t.recurrence||"",null)+'</select></div>'+
+      recurDayField+
       (t.status==="waiting"?
         '<div class="row2"><div class="field"><label for="td-won">Waiting on</label><input id="td-won" value="'+esc(t.waitingOn||"")+'" placeholder="Supplier"></div>'+
         '<div class="field"><label for="td-wexp">Expected by</label><input type="date" id="td-wexp" value="'+esc(t.waitingExpected||"")+'"></div></div>'+
@@ -1542,7 +1588,7 @@ document.addEventListener("change",function(ev){
   if(id==="cf-project"){ S.calF.project=ev.target.value; render(); return; }
   if(id==="cf-dept"){ S.calF.dept=ev.target.value; render(); return; }
   if(id==="cf-color"){ S.calColor=ev.target.value; render(); return; }
-  if(id==="td-status"||id==="td-dept"){ saveDrawer(true); return; }
+  if(id==="td-status"||id==="td-dept"||id==="td-recur"){ saveDrawer(true); return; }
   if(ev.target.matches && ev.target.matches("[data-stock]")){
     var pid=ev.target.getAttribute("data-stock"), loc=ev.target.getAttribute("data-loc");
     var p=stockById(pid); if(!p) return;
@@ -1697,6 +1743,7 @@ function saveDrawer(keepOpen){
   c.startDate = val("td-start");
   c.dueDate = val("td-due");
   c.recurrence = val("td-recur");
+  c.recurrenceDay = document.getElementById("td-recur-day")? val("td-recur-day") : "";
   c.notes = val("td-notes");
   if(document.getElementById("td-won")) c.waitingOn=val("td-won");
   if(document.getElementById("td-wexp")) c.waitingExpected=val("td-wexp");
