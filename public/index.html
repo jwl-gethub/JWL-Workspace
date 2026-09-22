@@ -591,7 +591,7 @@ function cloneQty(q){var c={};for(var k in (q||{})) c[k]=q[k];return c;}
 function cloneStock(p){var c={};for(var k in p) c[k]= (k==="qty")? cloneQty(p.qty) : p[k];return c;}
 function stockTotal(p){var q=p.qty||{},t=0;for(var i=0;i<STOCK_LOCS.length;i++){var v=parseFloat(q[STOCK_LOCS[i].id]);if(!isNaN(v))t+=v;}return t;}
 function newStock(over){
-  var p={id:uid(),name:"",type:"",qty:{},notes:"",createdAt:TODAY};
+  var p={id:uid(),name:"",type:"",qty:{},onOrder:"",notes:"",createdAt:TODAY};
   for(var k in (over||{})) p[k]=over[k];
   return p;
 }
@@ -613,9 +613,9 @@ function csvEscape(v){
   return v;
 }
 function stockToCSV(list){
-  var header = ["Product","Type"].concat(STOCK_LOCS.map(function(l){return l.label;})).concat(["Total"]);
+  var header = ["Product","Type"].concat(STOCK_LOCS.map(function(l){return l.label;})).concat(["Total","On Order"]);
   var rows = list.map(function(p){
-    return [p.name||"", p.type||""].concat(STOCK_LOCS.map(function(l){return (p.qty||{})[l.id]||0;})).concat([stockTotal(p)]);
+    return [p.name||"", p.type||""].concat(STOCK_LOCS.map(function(l){return (p.qty||{})[l.id]||0;})).concat([stockTotal(p), p.onOrder||0]);
   });
   return [header].concat(rows).map(function(r){return r.map(csvEscape).join(",");}).join("\r\n");
 }
@@ -1085,6 +1085,7 @@ function viewProjects(){
 
 function stockRow(p){
   var total = stockTotal(p);
+  var onOrder = p.onOrder;
   return '<tr>'+
     '<td class="stock-name"><button class="link" data-editstock="'+esc(p.id)+'">'+esc(p.name)+'</button></td>'+
     '<td class="stock-type">'+(p.type?esc(p.type):'<span class="note" style="margin:0">—</span>')+'</td>'+
@@ -1093,6 +1094,7 @@ function stockRow(p){
       return '<td><input type="number" step="any" class="stock-qty" data-stock="'+esc(p.id)+'" data-loc="'+l.id+'" value="'+(v!=null&&v!==""?esc(v):"")+'" placeholder="0"></td>';
     }).join("")+
     '<td class="stock-tot">'+total+'</td>'+
+    '<td><input type="number" step="any" class="stock-qty stock-onorder" data-onorder="'+esc(p.id)+'" value="'+(onOrder!=null&&onOrder!==""?esc(onOrder):"")+'" placeholder="0"></td>'+
     '<td class="stock-actions"><button class="link" data-newtask-stock="'+esc(p.id)+'">+ Task</button>'+
       '<button class="icon-btn" data-delstock="'+esc(p.id)+'" aria-label="Remove product">✕</button></td>'+
   '</tr>';
@@ -1117,18 +1119,19 @@ function viewStock(){
     return out;
   }
   var totalsByLoc={}; STOCK_LOCS.forEach(function(l){totalsByLoc[l.id]=0;});
-  var grand=0;
+  var grand=0, grandOnOrder=0;
   var rows = list.map(function(p){
     STOCK_LOCS.forEach(function(l){ var v=parseFloat((p.qty||{})[l.id]); if(!isNaN(v)) totalsByLoc[l.id]+=v; });
     grand += stockTotal(p);
+    var ov=parseFloat(p.onOrder); if(!isNaN(ov)) grandOnOrder+=ov;
     return stockRow(p);
   }).join("");
   var footer = '<tr class="stock-total-row"><td>Total</td><td></td>'+
     STOCK_LOCS.map(function(l){return '<td>'+totalsByLoc[l.id]+'</td>';}).join("")+
-    '<td>'+grand+'</td><td></td></tr>';
+    '<td>'+grand+'</td><td>'+grandOnOrder+'</td><td></td></tr>';
   out += '<div class="panel"><div style="overflow-x:auto"><table class="stock">'+
     '<thead><tr><th>Product</th><th>Type</th>'+STOCK_LOCS.map(function(l){return '<th>'+esc(l.label)+'</th>';}).join("")+
-    '<th>Total</th><th></th></tr></thead><tbody>'+rows+footer+'</tbody></table></div>'+
+    '<th>Total</th><th>On Order</th></tr></thead><tbody>'+rows+footer+'</tbody></table></div>'+
     '<p class="note" style="padding:10px 14px 12px">Quantities are entered freely per location — click a product name to edit it, or "+ Task" to assign someone to fill it.</p></div>';
   return out;
 }
@@ -1663,6 +1666,15 @@ document.addEventListener("change",function(ev){
     var raw=ev.target.value;
     c.qty[loc] = raw===""? "" : raw;
     upsertStock(c);
+    return;
+  }
+  if(ev.target.matches && ev.target.matches("[data-onorder]")){
+    var opid=ev.target.getAttribute("data-onorder");
+    var op=stockById(opid); if(!op) return;
+    var oc=cloneStock(op);
+    var oraw=ev.target.value;
+    oc.onOrder = oraw===""? "" : oraw;
+    upsertStock(oc);
     return;
   }
   if(ev.target.matches("[data-sub]")){
