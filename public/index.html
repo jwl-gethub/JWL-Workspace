@@ -567,6 +567,21 @@ function newTask(over){
   return t;
 }
 function ordinal(n){var s=["th","st","nd","rd"],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+function recurDayFieldHTML(prefix,recurrence,recurrenceDay,dueDate){
+  if(recurrence==="weekly"||recurrence==="fortnightly"){
+    var dow = (recurrenceDay!=null && recurrenceDay!=="")? +recurrenceDay : parseISO(dueDate||TODAY).getDay();
+    return '<div class="field"><label for="'+prefix+'-recur-day">Repeat on</label><select id="'+prefix+'-recur-day">'+
+      DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===dow?' selected':'')+'>'+d+'</option>';}).join("")+
+      '</select></div>';
+  }
+  if(recurrence==="monthly"||recurrence==="quarterly"){
+    var dom = (recurrenceDay!=null && recurrenceDay!=="")? String(recurrenceDay) : String(parseISO(dueDate||TODAY).getDate());
+    var domOpts = '<option value="last"'+(dom==="last"?" selected":"")+'>Last day of the month</option>';
+    for(var di=1;di<=31;di++) domOpts += '<option value="'+di+'"'+(String(di)===dom?" selected":"")+'>'+ordinal(di)+'</option>';
+    return '<div class="field"><label for="'+prefix+'-recur-day">Repeat on</label><select id="'+prefix+'-recur-day">'+domOpts+'</select></div>';
+  }
+  return "";
+}
 function stockById(id){for(var i=0;i<S.stock.length;i++) if(S.stock[i].id===id) return S.stock[i];return null;}
 function cloneQty(q){var c={};for(var k in (q||{})) c[k]=q[k];return c;}
 function cloneStock(p){var c={};for(var k in p) c[k]= (k==="qty")? cloneQty(p.qty) : p[k];return c;}
@@ -1354,6 +1369,9 @@ function quickAddHTML(){
       '</div>'+
       '<div class="field"><label for="qa-dept">Department</label><select id="qa-dept">'+
         optionList(Object.keys(DEPTS).map(function(d){return{id:d,label:d};}),pre.department||"","None")+'</select></div>'+
+      '<div class="field"><label for="qa-recur">Repeats</label><select id="qa-recur">'+
+        optionList(RECUR.map(function(r){return{id:r.id,label:r.label};}),pre.recurrence||"",null)+'</select></div>'+
+      recurDayFieldHTML("qa",pre.recurrence||"",pre.recurrenceDay||"",pre.dueDate||"")+
       '<p class="note">Everything else can be filled in later. Press Enter to create.</p>'+
     '</div>'+
     '<div class="m-f"><button class="btn" data-close="1">Cancel</button><button class="btn primary" id="qa-save">Create task</button></div>'+
@@ -1413,18 +1431,7 @@ function drawerHTML(id){
   if(!t) return "";
   var cats = t.department? DEPTS[t.department]||[] : [];
   var pg = taskProgress(t);
-  var recurDayField = "";
-  if(t.recurrence==="weekly"||t.recurrence==="fortnightly"){
-    var dow = (t.recurrenceDay!=null && t.recurrenceDay!=="")? +t.recurrenceDay : parseISO(t.dueDate||TODAY).getDay();
-    recurDayField = '<div class="field"><label for="td-recur-day">Repeat on</label><select id="td-recur-day">'+
-      DAYS.map(function(d,i){return '<option value="'+i+'"'+(i===dow?' selected':'')+'>'+d+'</option>';}).join("")+
-      '</select></div>';
-  } else if(t.recurrence==="monthly"||t.recurrence==="quarterly"){
-    var dom = (t.recurrenceDay!=null && t.recurrenceDay!=="")? String(t.recurrenceDay) : String(parseISO(t.dueDate||TODAY).getDate());
-    var domOpts = '<option value="last"'+(dom==="last"?" selected":"")+'>Last day of the month</option>';
-    for(var di=1;di<=31;di++) domOpts += '<option value="'+di+'"'+(String(di)===dom?" selected":"")+'>'+ordinal(di)+'</option>';
-    recurDayField = '<div class="field"><label for="td-recur-day">Repeat on</label><select id="td-recur-day">'+domOpts+'</select></div>';
-  }
+  var recurDayField = recurDayFieldHTML("td", t.recurrence, t.recurrenceDay, t.dueDate);
   return '<div class="scrim" data-close="1"></div><div class="drawer" role="dialog" aria-label="Task detail">'+
     '<div class="m-h"><h2>Task</h2><div style="display:flex;gap:8px">'+
       '<button class="btn" id="td-complete">'+(isDone(t)?"Reopen":"Mark complete")+'</button>'+
@@ -1589,6 +1596,7 @@ document.addEventListener("change",function(ev){
   if(id==="cf-dept"){ S.calF.dept=ev.target.value; render(); return; }
   if(id==="cf-color"){ S.calColor=ev.target.value; render(); return; }
   if(id==="td-status"||id==="td-dept"||id==="td-recur"){ saveDrawer(true); return; }
+  if(id==="qa-recur"){ syncQuickAddPrefill(); renderOverlay(); return; }
   if(ev.target.matches && ev.target.matches("[data-stock]")){
     var pid=ev.target.getAttribute("data-stock"), loc=ev.target.getAttribute("data-loc");
     var p=stockById(pid); if(!p) return;
@@ -1672,12 +1680,22 @@ function capture(){
   upsertTask(newTask({title:v,inbox:true,priority:"medium"}));
   var e2=document.getElementById("cap"); if(e2){ e2.value=""; e2.focus(); }
 }
+function syncQuickAddPrefill(){
+  S.modalPrefill = {
+    title: val("qa-title"), assignee: val("qa-assignee"), dueDate: val("qa-due"),
+    priority: val("qa-prio"), projectId: val("qa-project"), department: val("qa-dept"),
+    recurrence: val("qa-recur"),
+    recurrenceDay: document.getElementById("qa-recur-day")? val("qa-recur-day") : ""
+  };
+}
 function saveQuickAdd(){
   var title=val("qa-title").trim();
   if(!title){ var e=document.getElementById("qa-title"); if(e) e.focus(); return; }
   upsertTask(newTask({
     title:title, assignee:val("qa-assignee"), dueDate:val("qa-due"),
-    priority:val("qa-prio")||"medium", projectId:val("qa-project"), department:val("qa-dept")
+    priority:val("qa-prio")||"medium", projectId:val("qa-project"), department:val("qa-dept"),
+    recurrence: val("qa-recur")||"",
+    recurrenceDay: document.getElementById("qa-recur-day")? val("qa-recur-day") : ""
   }));
   closeOverlay();
 }
